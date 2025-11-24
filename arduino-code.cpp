@@ -1,97 +1,120 @@
-const int PIN_RED   = 9; //Red LED on pin 9
+#include <IRremote.hpp>
 
-const int PIN_GREEN = 10; //Green LED on pin 10
+#define IR_PIN 11
 
-const int PIN_BLUE  = 11; //Blue LED on Pin 11
+// Команды с твоего ИК-пульта (NEC)
+#define BTN_1_CMD 0x0C
+#define BTN_2_CMD 0x18
+#define BTN_3_CMD 0x5E
+#define BTN_4_CMD 0x08
+#define BTN_5_CMD 0x1C
+#define BTN_6_CMD 0x5A
 
-int incomingByte = 0;
+// Пины LED
+int ledPins[9] = {2, 3, 4, 5, 6, 7, 8, 9, 10};
+bool ledState[9] = {false};
 
-String readString;
+String inputString = "";
+bool stringComplete = false;
 
-
+// ------------------------
+// Инициализация
+// ------------------------
 void setup() {
+  Serial.begin(9600);     // HC-05
+  IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);
 
-  //set all three pins to output mode
-
-  pinMode(PIN_RED,   OUTPUT);
-
-  pinMode(PIN_GREEN, OUTPUT);
-
-  pinMode(PIN_BLUE,  OUTPUT);
-
-  Serial.begin(9600);
-
+  for (int i = 0; i < 9; i++) {
+    pinMode(ledPins[i], OUTPUT);
+    digitalWrite(ledPins[i], LOW);
+  }
 }
 
+// ------------------------
+// Переключение LED
+// ------------------------
+void toggleLed(int index) {
+  ledState[index] = !ledState[index];
+  digitalWrite(ledPins[index], ledState[index]);
+}
+
+void setLed(int index, bool state) {
+  ledState[index] = state;
+  digitalWrite(ledPins[index], state);
+}
+
+// ------------------------
+// Парсер команд Bluetooth
+// Формат: LED:<id>:<action>
+// <id> — номер 1–9
+// <action> — ON, OFF, TOGGLE
+// ------------------------
+void processCommand(String cmd) {
+  cmd.trim();
+  if (!cmd.startsWith("LED:")) return;
+
+  // LED:3:TOGGLE
+  int first = cmd.indexOf(':');
+  int second = cmd.indexOf(':', first + 1);
+
+  int ledId = cmd.substring(first + 1, second).toInt();
+  String action = cmd.substring(second + 1);
+
+  if (ledId < 1 || ledId > 9) return;
+
+  int index = ledId - 1;
+
+  if (action == "TOGGLE") {
+    toggleLed(index);
+  } else if (action == "ON") {
+    setLed(index, true);
+  } else if (action == "OFF") {
+    setLed(index, false);
+  }
+
+  Serial.print("ACK:");
+  Serial.print(ledId);
+  Serial.print(":");
+  Serial.println(action);
+}
+
+// ------------------------
+// Основной цикл
+// ------------------------
 void loop() {
+  
+  // ======== IR управление ========
+  if (IrReceiver.decode()) {
 
+    if (!(IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
+      uint8_t cmd = IrReceiver.decodedIRData.command;
 
-  while (Serial.available()) {
-
-    delay(2);  //delay to allow byte to arrive in input buffer
-
-    char c = Serial.read();
-
-    if (c != '\n')
-
-    {
-
-      readString += c;
-
+      switch (cmd) {
+        case BTN_1_CMD: toggleLed(0); toggleLed(1); break; // LED 2 и 3
+        case BTN_2_CMD: toggleLed(2); toggleLed(3); break; // LED 4 и 5
+        case BTN_3_CMD: toggleLed(4); toggleLed(5); break; // LED 6 и 7
+        case BTN_4_CMD: toggleLed(6); break;              // LED 8
+        case BTN_5_CMD: toggleLed(7); break;              // LED 9
+        case BTN_6_CMD: toggleLed(8); break;              // LED 10
+      }
     }
 
+    IrReceiver.resume();
   }
 
-
-  if (readString.length() > 0)
-
-  {
-
-    //expected value example 0.50.255
-
-   
-
-    int index = readString.indexOf('.');
-
-    int length = readString.length();
-
-    String valueRedString = readString.substring(0, index);
-
-    String valueGreenAndBlueString = readString.substring(index + 1, length);
-
-    index = valueGreenAndBlueString.indexOf('.');
-
-    String valueGreenString = valueGreenAndBlueString.substring(0, index);
-
-    String valueBlueString = valueGreenAndBlueString.substring(index + 1, length);
-
-
-    int valueRedInt = valueRedString.toInt();
-
-    int valueGreenInt = valueGreenString.toInt();
-
-    int valueBlueInt = valueBlueString.toInt();
-
-
-    analogWrite(PIN_RED,   valueRedInt);
-
-    analogWrite(PIN_GREEN, valueGreenInt);
-
-    analogWrite(PIN_BLUE,  valueBlueInt);
-
-
-    Serial.println(valueRedInt);
-
-    Serial.println(valueGreenInt);
-
-    Serial.println(valueBlueInt);
-
-    readString = "";
-
+  // ======== Bluetooth управление ========
+  while (Serial.available()) {
+    char c = (char)Serial.read();
+    if (c == '\n') {
+      stringComplete = true;
+      break;
+    }
+    inputString += c;
   }
 
-
-  delay(1000);    //a little delay is needed so you can see the change
-
+  if (stringComplete) {
+    processCommand(inputString);
+    inputString = "";
+    stringComplete = false;
+  }
 }
-
