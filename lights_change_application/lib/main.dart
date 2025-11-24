@@ -12,7 +12,7 @@ class LedControllerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
+      theme: ThemeData(useMaterial3: true, fontFamily: 'Nunito'),
       home: const LoginPage(),
     );
   }
@@ -68,30 +68,66 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Authorization')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _userController,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _login, child: const Text('Login')),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+    return Container(
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage("assets/images/ajVs7n.jpg"),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text(
+            'Authorization',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.transparent,
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _userController,
+                      decoration: const InputDecoration(labelText: 'Username'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _passController,
+                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _login,
+                      child: const Text('Login'),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                    ],
+                  ],
+                ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -118,7 +154,7 @@ class _ControllerPageState extends State<ControllerPage> {
 
     FlutterBluePlus.scanResults.listen((event) async {
       for (var r in event) {
-        if (r.device.name == 'HC-05') {
+        if (r.device.name == 'HC-05' || r.device.name == 'HC-06') {
           device = r.device;
           FlutterBluePlus.stopScan();
           setState(() => scanning = false);
@@ -168,15 +204,18 @@ class _ControllerPageState extends State<ControllerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('User: ${widget.account.username}'),
+        title: Text(
+          'Welcome - ${widget.account.username}',
+          style: TextStyle(color: Colors.white),
+        ),
         actions: [
           if (widget.account.role == 'admin')
             IconButton(
-              icon: const Icon(Icons.settings),
+              icon: const Icon(Icons.settings, color: Colors.white),
               onPressed: _openAdminPanel,
             ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
               device?.disconnect();
               Navigator.pushReplacement(
@@ -186,34 +225,56 @@ class _ControllerPageState extends State<ControllerPage> {
             },
           ),
         ],
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-
-      body: Column(
+      extendBodyBehindAppBar: true, //чтобы фон был виден под AppBar
+      body: Stack(
         children: [
-          const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: scanning ? null : scan,
-            child: Text(scanning ? 'Scanning...' : 'Scan for HC-05'),
-          ),
-
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: 9,
-              itemBuilder: (c, i) {
-                final allowed =
-                    widget.account.allowed.contains(i) ||
-                    widget.account.role == 'admin';
-                return ElevatedButton(
-                  onPressed: allowed ? () => send(i) : null,
-                  child: Text('LED ${i + 2}'),
-                );
-              },
+          // Фоновое изображение
+          SizedBox.expand(
+            child: Image.asset(
+              'assets/images/ajVs7n.jpg', //путь к твоему изображению
+              fit: BoxFit.cover, //масштабирование по размеру экрана
             ),
+          ),
+          //Контент сверху
+          Column(
+            children: [
+              const SizedBox(height: kToolbarHeight + 24), //отступ от AppBar
+              ElevatedButton(
+                onPressed: scanning ? null : scan,
+                child: Text(
+                  scanning
+                      ? 'Scanning...'
+                      : 'Scan for bluetooth device HC-05 or HC-06',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                    itemCount: 9,
+                    itemBuilder: (c, i) {
+                      final allowed =
+                          widget.account.allowed.contains(i) ||
+                          widget.account.role == 'admin';
+                      return ElevatedButton(
+                        onPressed: allowed ? () => send(i) : null,
+                        child: Text('LED ${i + 2}'),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -247,19 +308,22 @@ class _AdminPanelState extends State<AdminPanel> {
                 spacing: 8,
                 children: List.generate(9, (i) {
                   final enabled = acc.allowed.contains(i);
-                  return FilterChip(
-                    label: Text('LED ${i + 2}'),
-                    selected: enabled,
-                    onSelected: (v) {
-                      setState(() {
-                        if (v) {
-                          acc.allowed.add(i);
-                        } else {
-                          acc.allowed.remove(i);
-                        }
-                      });
-                      widget.onUpdate();
-                    },
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: FilterChip(
+                      label: Text('LED ${i + 2}'),
+                      selected: enabled,
+                      onSelected: (v) {
+                        setState(() {
+                          if (v) {
+                            acc.allowed.add(i);
+                          } else {
+                            acc.allowed.remove(i);
+                          }
+                        });
+                        widget.onUpdate();
+                      },
+                    ),
                   );
                 }),
               ),
